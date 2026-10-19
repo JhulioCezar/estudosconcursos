@@ -1,0 +1,25 @@
+const fs = require('node:fs');
+const vm = require('node:vm');
+const assert = require('node:assert/strict');
+const html=fs.readFileSync('D:/Trilha-Legislativa-CMRB/index.html','utf8');
+const bank=html.match(/<script id="question-data" type="application\/json">([\s\S]*?)<\/script>/)[1];
+const elements=new Map();
+const element=id=>{if(!elements.has(id))elements.set(id,{innerHTML:'',textContent:id==='question-data'?bank:'',value:'',files:[]});return elements.get(id);};
+let saves=0;
+const ctx=vm.createContext({document:{getElementById:element},window:{addEventListener(){},scrollTo(){},persistProgress(){saves++;}},setInterval(){return 1;},clearInterval(){},setTimeout(){},confirm(){return true;},console,Date,JSON,Math});
+vm.runInContext(fs.readFileSync('D:/Trilha-Legislativa-CMRB/app.js','utf8'),ctx);
+vm.runInContext(`
+if(BANK.length!==60)throw Error('Banco incompleto');
+startFull();
+if(session.questions.length!==40)throw Error('Quantidade do simulado incorreta');
+for(const q of session.questions)session.answers[q.id]=q.answer;
+finish();
+if(session.result.score!==60||session.result.max!==60)throw Error('Pontuação incorreta');
+if(state.history.length!==1)throw Error('Histórico não registrado');
+if(state.wrong.length!==0)throw Error('Caderno de erros incorreto');
+startFull();finish();
+if(state.wrong.length!==40)throw Error('Questões em branco não registradas');
+`,ctx);
+assert.equal(saves,2);
+assert(!fs.readFileSync('D:/Trilha-Legislativa-CMRB/app.js','utf8').includes('localStorage.setItem'));
+console.log('OK: 60 questões preservadas; simulado completo de 40 questões; pontuação 60/60; histórico e erros; salvamento encaminhado para conta.');
